@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        #map {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            background: #000;
+        }
+        #score span{
+          color: red;
+          font-size: 20px;
+
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<p id="score">得分是：<span></span></p>
+<script>
+  //地图类
+   class Map{
+     constructor(el,rect=10){
+         this.el=el;
+         this.rect=rect;
+         this.data=[];
+         /*
+            this.data=[{
+                x:0,
+                y:0,
+                color:"red";
+            }]
+         */
+         this.rows=Math.ceil(Map.getStyle(el,"height")/rect);
+         this.cols=Math.ceil(Map.getStyle(el,"width")/rect);
+         this.height=this.rows*rect;
+         this.width=this.cols*rect;
+         Map.setSytle(el,"height",this.height);
+         Map.setSytle(el,"width",this.width);
+
+     }
+
+     static getStyle(el,attr){
+       return parseFloat(getComputedStyle(el)[attr]);
+     }
+
+     static setSytle(el,attr,val){
+         el.style[attr]=val+"px";
+     }
+
+     setData(newdata){
+       this.data=this.data.concat(newdata);
+
+     }
+
+     clearData(){
+       this.data.length=0;
+     }
+
+     include({x,y}){
+       let flag=false;
+       this.data.forEach(item => {
+           if(item.x==x && item.y==y){
+              flag=true;
+           }
+       });
+       return flag;
+     }
+     //根据数据绘制地图
+     render(){
+       this.el.innerHTML=`${this.data.map((item)=>{
+          return `<span style="position:absolute;width:${this.rect}px;height:${this.rect}px;left:${item.x*this.rect}px;top:${item.y*this.rect}px;background:${item.color};"></span>`
+       }).join("")}`
+
+     }
+
+
+   }
+
+   class Food{
+     constructor(cols=10,rows=10,colors = ['red',"blue","yellow","pink"]){
+        this.cols=cols;
+        this.colors=colors;
+        this.rows=rows;
+        this.data=null;
+        this.create();
+     }
+
+     create(){
+       let x=Math.floor(Math.random()*this.cols);
+       let y=Math.floor(Math.random()*this.rows);
+       let color=this.colors[Math.floor(Math.random()*(this.colors.length-1))]; 
+       let data={x,y,color};
+       this.data=data;  
+     }
+   }
+  
+   class Snake{
+     constructor(){
+      this.data = [
+            {x: 6, y: 4, color: "green"},
+            {x: 5, y: 4, color: "white"},
+            {x: 4, y: 4, color: "white"},
+            {x: 3, y: 4, color: "white"},
+            {x: 2, y: 4, color: "white"}
+        ];
+        this.direction = "right";
+
+     }
+     move(){
+       let len=this.data.length;
+       //保存最后一个数据
+       this.lastData = {
+            x: this.data[len-1].x,
+            y: this.data[len-1].y,
+            color: this.data[len-1].color
+        }
+        //后一个的数据被前一个数据所取代
+       for(let i=len-1;i>0;i--){
+         this.data[i].x=this.data[i-1].x;
+         this.data[i].y=this.data[i-1].y;
+       }
+      
+
+       switch(this.direction){
+         case "right":
+           this.data[0].x+=1;
+         break;
+         case "left":
+           this.data[0].x-=1;
+         break;
+         case "top":
+           this.data[0].y-=1;
+         break;
+         case "down":
+           this.data[0].y+=1;
+         break;
+       }
+     }
+     //改变蛇头方向
+     changeDir(dir){
+       if(this.direction=="top"||this.direction=="down"){
+         if(dir=="top"||dir=="down"){
+           return false;
+         }
+       }else{
+         if(dir=="left"||dir=="right"){
+           return false;
+         }
+       }
+       this.direction=dir;
+       return true;
+
+     }
+    //吃到食物后蛇体加长
+     eatFood(){
+         this.data.push(this.lastData);
+         console.log(this.data);
+     }
+    
+   }
+   //游戏控制器
+   class Game{
+     constructor(el,rec){
+       this.snake=new Snake();
+       this.map=new Map(el,rec);
+       this.food=new Food(this.map.cols,this.map.rows);
+       this.map.setData(this.snake.data);
+       this.createFood();
+       this.map.setData(this.food.data);
+       this.render();
+       this.timer=null;
+       this.interval=500;
+       this.defalutControl();
+       this.stop();
+       this.start();
+       this.scoreNum=0;
+     }
+
+     createFood(){
+       this.food.create();
+       if(this.map.include(this.food.data)){
+         console.log("重复"+this.food.data);
+         this.createFood();
+       }
+     }
+
+     render(){
+       this.map.clearData();
+       this.map.setData(this.snake.data);
+       this.map.setData(this.food.data);
+       this.map.render();
+     }
+
+     isFoodEated(){
+       let flag=false;
+       if((this.snake.data[0].x==this.food.data.x) && (this.snake.data[0].y==this.food.data.y)){
+          flag=true;
+       }
+       return flag;
+
+     }
+
+     isOver(){
+      let flag=false;
+      //出界就是失败
+      if(this.snake.data[0].x>=this.map.cols||this.snake.data[0].x<0||this.snake.data[0].y<0||this.snake.data[0].y>=this.map.rows){
+        flag=true;
+      }       
+      //撞到自己也是失败
+      for(let i=1;i<this.snake.data.length;i++){
+        if(this.snake.data[i].x===this.snake.data[0].x && this.snake.data[i].y===this.snake.data[0].y ){
+           flag=true
+         }
+       }
+
+      return flag;
+
+     }
+
+     start(){
+       this.move();
+     }
+
+     move(){
+       this.timer=setInterval(()=>{
+         this.snake.move();
+         if(this.isFoodEated()){
+            this.snake.eatFood();
+            this.createFood();
+            this.interval*=0.9; 
+            this.score();   
+         }
+         if(this.isOver()){
+            this.stop();
+            alert("Game Over")
+            return
+         }
+         this.render();
+       
+       },this.interval)
+       
+     }
+
+     stop(){
+       clearInterval(this.timer);
+     }
+
+     score(){
+      this.scoreNum++;
+      let scoreSpan=document.querySelector("#score>span");
+      scoreSpan.innerHTML=this.scoreNum;
+     
+     }
+
+     defalutControl(){
+       let This=this;
+       if(this.control){
+          window.removeEventListener("keydown",control)
+          return
+       }else{
+          function control(e){
+            switch(e.keyCode){
+             case 87:
+              This.snake.changeDir("top")
+             break;
+             case 83:
+              This.snake.changeDir("down")
+             break;
+             case 65:
+              This.snake.changeDir("left")
+             break;
+             case 68:
+              This.snake.changeDir("right")
+             break;
+          }}
+          window.addEventListener("keydown",control)
+       }
+
+      }
+    }
+    
+
+
+
+   
+
+   
+
+
+      
+
+
+     { let mapEl=document.querySelector("#map");
+      let game=new Game(mapEl,10);
+      // let testtime=null;
+      // let food=new Food(map.cols,map.rows);
+      // let snake=new Snake();
+      // let game=new Game(snake,food,map);
+      // map.setData(snake.data);
+      // map.setData(food.data);
+      // testtime=setInterval(()=>{
+      //   snake.move();
+      //   if(game.isFoodEated()){
+      //     snake.eatFood();
+      //   }
+      //   map.setData(snake.data);
+      //   map.render();
+
+      // },500)
+
+      // map.render();
+
+      // window.addEventListener("keydown",(e)=>{
+      //      switch(e.keyCode){
+      //        case 87:
+      //          snake.changeDir("top")
+      //        break;
+      //        case 83:
+      //          snake.changeDir("down")
+      //        break;
+      //        case 65:
+      //          snake.changeDir("left")
+      //        break;
+      //        case 68:
+      //        snake.changeDir("right")
+      //        break;
+      //      }
+
+      // })
+      }
+
+
+
+
+
+   
+
+</script>
+</body>
+</html>
